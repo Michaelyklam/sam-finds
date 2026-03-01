@@ -10,7 +10,37 @@ docker compose up --build -d
 docker compose logs -f
 ```
 
-The API is available at `http://localhost:8000`. A built-in mask viewer is served at `/`.
+The API is available at `http://localhost:8000`. A built-in mask/point viewer is served at `/`.
+
+### Network Access
+
+The API listens on all interfaces (`0.0.0.0:8000`), so any device on the same local network can reach it. Find the host machine's IP:
+
+```bash
+hostname -I | awk '{print $1}'
+```
+
+Then from another device:
+
+- **Viewer**: `http://<HOST_IP>:8000/`
+- **API**: `http://<HOST_IP>:8000/v1/sam/segment`
+
+Example — segment an image from a phone/laptop on the same Wi-Fi:
+
+```bash
+# Encode an image and call the API
+BASE64=$(base64 -w0 photo.jpg)
+
+# Get masks (default)
+curl -s http://192.168.0.10:8000/v1/sam/segment \
+  -H 'Content-Type: application/json' \
+  -d "{\"image\":\"$BASE64\",\"prompt\":{\"text\":\"dog\"}}" | jq .
+
+# Get centroid points instead
+curl -s http://192.168.0.10:8000/v1/sam/segment \
+  -H 'Content-Type: application/json' \
+  -d "{\"image\":\"$BASE64\",\"prompt\":{\"text\":\"dog\"},\"output\":\"points\"}" | jq .
+```
 
 ### Requirements
 
