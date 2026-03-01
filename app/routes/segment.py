@@ -13,7 +13,7 @@ router = APIRouter()
 
 
 @router.post("/v1/sam/segment", response_model=SegmentResponse)
-async def segment(request: Request, body: SegmentRequest) -> SegmentResponse:
+def segment(request: Request, body: SegmentRequest) -> SegmentResponse:
     # Decode image
     try:
         image_bytes = base64.b64decode(body.image)

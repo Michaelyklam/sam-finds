@@ -195,7 +195,10 @@ overlayCanvas.addEventListener('mouseup', e => {
 
 function drawPrompt(tempBox) {
   overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
-  for (const idx of activeMask) drawMask(idx);
+  const imgData = overlayCtx.createImageData(overlayCanvas.width, overlayCanvas.height);
+  for (const idx of activeMask) drawMask(idx, imgData);
+  if (activeMask.size > 0) overlayCtx.putImageData(imgData, 0, 0);
+  points.forEach((_, i) => drawCentroid(i));
 
   if (point) {
     overlayCtx.beginPath();
@@ -310,19 +313,16 @@ function decodeRLE(rle) {
   return { data: mask, h, w };
 }
 
-function drawMask(idx) {
+function drawMask(idx, imgData) {
   const m = masks[idx];
   if (!m) return;
   const { data, h, w } = decodeRLE(m.mask_rle);
   const [r, g, b, a] = COLORS[idx % COLORS.length];
-
-  const imgData = overlayCtx.createImageData(overlayCanvas.width, overlayCanvas.height);
   const dispW = overlayCanvas.width;
   const dispH = overlayCanvas.height;
 
   for (let dy = 0; dy < dispH; dy++) {
     for (let dx = 0; dx < dispW; dx++) {
-      // COCO RLE is column-major: index = x * h + y
       const mx = Math.round(dx * scaleX);
       const my = Math.round(dy * scaleY);
       if (mx < w && my < h) {
@@ -337,12 +337,13 @@ function drawMask(idx) {
       }
     }
   }
-  overlayCtx.putImageData(imgData, 0, 0);
 }
 
 function renderMasks() {
   overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
-  for (const idx of activeMask) drawMask(idx);
+  const imgData = overlayCtx.createImageData(overlayCanvas.width, overlayCanvas.height);
+  for (const idx of activeMask) drawMask(idx, imgData);
+  overlayCtx.putImageData(imgData, 0, 0);
   drawPrompt();
 
   masksInfoEl.innerHTML = '';

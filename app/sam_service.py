@@ -106,7 +106,10 @@ class SAMService:
 
             # Compute centroid from binary mask
             coords = np.where(binary == 1)
-            cy, cx = float(coords[0].mean()), float(coords[1].mean())
+            if coords[0].size == 0:
+                cy, cx = height / 2.0, width / 2.0
+            else:
+                cy, cx = float(coords[0].mean()), float(coords[1].mean())
             point_results.append(
                 PointResult(
                     id=str(rank),
