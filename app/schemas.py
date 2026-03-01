@@ -21,16 +21,16 @@ class BoxPrompt(BaseModel):
 class Prompt(BaseModel):
     points: list[PointPrompt] | None = None
     box: BoxPrompt | None = None
-    mask: str | None = None  # base64-encoded mask
+    text: str | None = None
 
     @model_validator(mode="after")
     def exactly_one_prompt(self) -> Prompt:
         set_fields = sum(
-            v is not None for v in [self.points, self.box, self.mask]
+            v is not None for v in [self.points, self.box, self.text]
         )
         if set_fields != 1:
             raise ValueError(
-                "Exactly one of 'points', 'box', or 'mask' must be provided"
+                "Exactly one of 'points', 'box', or 'text' must be provided"
             )
         return self
 
@@ -40,7 +40,7 @@ class Prompt(BaseModel):
             return "points"
         if self.box is not None:
             return "box"
-        return "mask"
+        return "text"
 
 
 class SegmentRequest(BaseModel):

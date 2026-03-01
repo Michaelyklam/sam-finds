@@ -3,3 +3,8 @@ uvicorn[standard]==0.34.*
 numpy
 Pillow
 pycocotools
+einops
+decord
+opencv-python-headless
+scipy
+scikit-image
