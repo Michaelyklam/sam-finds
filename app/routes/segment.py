@@ -23,20 +23,21 @@ async def segment(request: Request, body: SegmentRequest) -> SegmentResponse:
 
     # Run inference
     sam_service = request.app.state.sam_service
-    masks = sam_service.predict(
+    mask_results, point_results = sam_service.predict(
         image,
         body.prompt,
         multimask_output=body.multimask_output,
         max_masks=body.max_masks,
     )
 
-    return SegmentResponse(
-        masks=masks,
-        meta=Meta(
-            image_width=image.width,
-            image_height=image.height,
-            model="sam3",
-            prompt_type=body.prompt.prompt_type,
-            multimask_output=body.multimask_output,
-        ),
+    meta = Meta(
+        image_width=image.width,
+        image_height=image.height,
+        model="sam3",
+        prompt_type=body.prompt.prompt_type,
+        multimask_output=body.multimask_output,
     )
+
+    if body.output == "points":
+        return SegmentResponse(points=point_results, meta=meta)
+    return SegmentResponse(masks=mask_results, meta=meta)

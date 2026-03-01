@@ -48,6 +48,7 @@ class SegmentRequest(BaseModel):
     prompt: Prompt
     multimask_output: bool = True
     max_masks: int = 3
+    output: Literal["masks", "points"] = "masks"
 
 
 class MaskRLE(BaseModel):
@@ -61,6 +62,17 @@ class MaskResult(BaseModel):
     mask_rle: MaskRLE
 
 
+class CentroidPoint(BaseModel):
+    x: float
+    y: float
+
+
+class PointResult(BaseModel):
+    id: str
+    confidence: float
+    point: CentroidPoint
+
+
 class Meta(BaseModel):
     image_width: int
     image_height: int
@@ -70,7 +82,8 @@ class Meta(BaseModel):
 
 
 class SegmentResponse(BaseModel):
-    masks: list[MaskResult]
+    masks: list[MaskResult] | None = None
+    points: list[PointResult] | None = None
     meta: Meta
 
 

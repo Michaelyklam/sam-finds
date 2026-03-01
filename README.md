@@ -31,9 +31,17 @@ Segment an image using a text, box, or point prompt.
   "image": "<base64-encoded PNG or JPEG>",
   "prompt": { ... },
   "multimask_output": true,
-  "max_masks": 3
+  "max_masks": 3,
+  "output": "masks"
 }
 ```
+
+The `output` field controls the response format:
+
+| Value | Default | Description |
+|-------|---------|-------------|
+| `"masks"` | Yes | Return full COCO RLE masks with confidence scores |
+| `"points"` | No | Return centroid points (center of each mask) with confidence scores |
 
 The `prompt` field must contain **exactly one** of:
 
@@ -70,6 +78,23 @@ The `prompt` field must contain **exactly one** of:
 ```
 
 Masks are sorted by confidence descending and capped at `max_masks`. The `mask_rle` field uses [COCO RLE format](https://github.com/cocodataset/cocoapi) (column-major run-length encoding).
+
+#### Points Response (`output: "points"`)
+
+```json
+{
+  "points": [
+    {
+      "id": "0",
+      "confidence": 0.97,
+      "point": { "x": 412.35, "y": 301.78 }
+    }
+  ],
+  "meta": { ... }
+}
+```
+
+Each point is the centroid (center of mass) of the corresponding segmentation mask. Coordinates are in pixel space relative to the original image dimensions.
 
 #### Errors
 

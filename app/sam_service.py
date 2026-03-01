@@ -8,7 +8,7 @@ from PIL import Image
 from pycocotools import mask as mask_utils
 
 from app.errors import EMPTY_RESULT, INVALID_PROMPT, MODEL_ERROR, SAMError
-from app.schemas import MaskResult, MaskRLE, Prompt
+from app.schemas import CentroidPoint, MaskResult, MaskRLE, PointResult, Prompt
 
 logger = logging.getLogger(__name__)
 
@@ -38,7 +38,7 @@ class SAMService:
         *,
         multimask_output: bool = True,
         max_masks: int = 3,
-    ) -> list[MaskResult]:
+    ) -> tuple[list[MaskResult], list[PointResult]]:
         assert self.processor is not None
 
         width, height = image.size
@@ -97,16 +97,31 @@ class SAMService:
 
         order = np.argsort(scores_np)[::-1][:max_masks]
 
-        results: list[MaskResult] = []
+        mask_results: list[MaskResult] = []
+        point_results: list[PointResult] = []
         for rank, idx in enumerate(order):
             # masks shape: [N, 1, H, W] — squeeze the channel dim
             binary = masks_np[idx].squeeze(0).astype(np.uint8)
-            binary = np.asfortranarray(binary)
-            rle = mask_utils.encode(binary)
-            results.append(
+            confidence = round(float(scores_np[idx]), 4)
+
+            # Compute centroid from binary mask
+            coords = np.where(binary == 1)
+            cy, cx = float(coords[0].mean()), float(coords[1].mean())
+            point_results.append(
+                PointResult(
+                    id=str(rank),
+                    confidence=confidence,
+                    point=CentroidPoint(x=round(cx, 2), y=round(cy, 2)),
+                )
+            )
+
+            # Encode RLE for mask output
+            binary_f = np.asfortranarray(binary)
+            rle = mask_utils.encode(binary_f)
+            mask_results.append(
                 MaskResult(
                     id=str(rank),
-                    confidence=round(float(scores_np[idx]), 4),
+                    confidence=confidence,
                     mask_rle=MaskRLE(
                         counts=rle["counts"].decode("utf-8"),
                         size=list(rle["size"]),
@@ -114,4 +129,4 @@ class SAMService:
                 )
             )
 
-        return results
+        return mask_results, point_results
