@@ -1,4 +1,4 @@
-# SAM3 Segmentation API
+# SAM Finds
 
 A FastAPI service wrapping Meta's [Segment Anything Model 3](https://github.com/facebookresearch/sam3). Accepts an image + prompt and returns ranked segmentation masks with COCO RLE encoding and confidence scores.
 

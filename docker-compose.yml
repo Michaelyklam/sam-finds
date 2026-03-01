@@ -1,5 +1,5 @@
 services:
-  sam-api:
+  sam-finds:
     build: .
     ports:
       - "8000:8000"

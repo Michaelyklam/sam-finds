@@ -18,7 +18,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     yield
 
 
-app = FastAPI(title="SAM3 Segmentation API", lifespan=lifespan)
+app = FastAPI(title="SAM Finds", lifespan=lifespan)
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 app.add_exception_handler(SAMError, sam_error_handler)  # type: ignore[arg-type]
 app.include_router(segment_router)
