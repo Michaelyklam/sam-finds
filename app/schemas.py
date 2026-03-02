@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, model_validator
+from pydantic import BaseModel, field_validator, model_validator
 
 
 class PointPrompt(BaseModel):
@@ -51,6 +51,19 @@ class SegmentRequest(BaseModel):
     output: Literal["masks", "points"] = "masks"
 
 
+class TextPointsRequest(BaseModel):
+    image: str  # base64 PNG/JPEG
+    text: str
+
+    @field_validator("text")
+    @classmethod
+    def non_empty_text(cls, value: str) -> str:
+        normalized = value.strip()
+        if not normalized:
+            raise ValueError("text must be non-empty")
+        return normalized
+
+
 class MaskRLE(BaseModel):
     counts: str
     size: list[int]
@@ -79,6 +92,11 @@ class Meta(BaseModel):
     model: str
     prompt_type: str
     multimask_output: bool
+
+
+class TextPointsResponse(BaseModel):
+    points: list[PointResult]
+    meta: Meta
 
 
 class SegmentResponse(BaseModel):

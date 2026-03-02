@@ -1,94 +1,71 @@
 ---
 name: sam-segment-llm-caller
-description: Generate, validate, and optimize calls to the SAM Finds segmentation API (`POST /v1/sam/segment`). Use when Codex must turn natural-language intent into executable API calls (curl, JavaScript, Python, or backend code), choose the right prompt mode (`text`, `box`, or `points`), and tune `output`, `multimask_output`, and `max_masks` for best latency/throughput vs quality.
+description: Generate robust calls to the LLM-safe SAM Finds endpoint (`POST /v1/sam/segment/text-points`) and optimize text prompt wording for accurate clickable results. Use when Codex needs to turn user intent into segmentation request code and improve object descriptions so the returned point is reliably usable for click automation.
 ---
 
 # SAM Segment LLM Caller
 
 ## Objective
-Turn user intent into a correct, high-performance request to `/v1/sam/segment`, then parse and return the requested result format.
+Turn natural-language intent into a high-quality text prompt and call `/v1/sam/segment/text-points`.
+
+## Fixed API Contract
+Use only this endpoint for LLM-generated calls:
+- `POST /v1/sam/segment/text-points`
+
+Request body:
+```json
+{
+  "image": "<base64 PNG/JPEG>",
+  "text": "<object description>"
+}
+```
+
+Do not use:
+- `prompt.box`
+- `prompt.points`
+- output mode selection
+
+The backend already enforces balanced behavior and returns points for click workflows.
 
 ## Workflow
-1. Gather required inputs: image source, object/task intent, and whether caller needs full masks or just locations.
-2. Convert image bytes to base64 PNG/JPEG and set `image`.
-3. Set exactly one prompt type in `prompt`.
-4. Choose a performance profile and map it to `output`, `multimask_output`, and `max_masks`.
-5. Generate executable request code (not pseudocode).
-6. Validate response shape by `output` mode and handle known API errors.
+1. Determine the exact target object from user intent.
+2. Write a precise `text` description.
+3. Generate runnable request code (curl, JavaScript, or Python).
+4. Parse `points[0].point` as the click target.
 
-## Request Construction Rules
-- Send `POST /v1/sam/segment` with `Content-Type: application/json`.
-- Set `image` to base64-encoded PNG or JPEG bytes.
-- Set exactly one of:
-  - `prompt.text`: default for most use cases.
-  - `prompt.box`: use when caller already has a tight object box.
-  - `prompt.points`: use only when foreground/background clicks are the only input.
-- Never send multiple prompt types in one request.
-- Choose `output` intentionally:
-  - `masks`: full COCO RLE masks.
-  - `points`: centroid points only (smaller response, faster downstream handling).
+## Prompt Wording Rules
+Use these rules to maximize hit rate:
+- Start with the object noun: `backpack`, `dog`, `blue button`.
+- Add one or two discriminators: color, size, side, relation.
+- Keep phrases short and concrete.
+- Avoid coordinates, pixel values, and geometry instructions.
+- Avoid multi-object requests in one prompt.
 
-## Performance Tuning
-Choose one profile unless user explicitly requests different tradeoffs.
+Good examples:
+- `red coffee mug near the keyboard`
+- `leftmost person wearing a white shirt`
+- `blue submit button at the bottom`
 
-| Profile | Use when | output | multimask_output | max_masks |
-|---|---|---|---|---|
-| Fast | Real-time UX, previews, high QPS | `points` | `false` | `1` |
-| Balanced | Typical app behavior | `masks` | `false` | `1` or `2` |
-| Quality | Need alternate candidates / highest recall | `masks` | `true` | `3` |
-
-Additional performance rules:
-- Prefer `points` output when masks are not strictly required.
-- Set `multimask_output=false` unless multiple hypotheses are needed.
-- Keep `max_masks` as low as possible.
-- Prefer concise, specific `text` prompts.
-- Use `box` prompts when high-quality geometry is already available.
+Weak examples:
+- `object at x=420 y=300`
+- `find everything important`
+- `person and bike and car`
 
 ## LLM Output Pattern
-When user asks to "call the API", produce:
-1. One runnable snippet in the requested language.
-2. The exact JSON payload used.
-3. A one-line rationale for chosen performance profile.
+When user asks to call the API, return:
+1. One executable code snippet in requested language.
+2. The exact JSON payload.
+3. One-line explanation of why the `text` phrasing should disambiguate the target.
 
-If the user does not specify a profile, default to `Balanced`.
+## Response Handling
+Read the first returned point for click automation:
+- `response.points[0].point.x`
+- `response.points[0].point.y`
 
-## Minimal Payload Templates
-
-### Balanced (default)
-```json
-{
-  "image": "<base64>",
-  "prompt": { "text": "dog" },
-  "multimask_output": false,
-  "max_masks": 2,
-  "output": "masks"
-}
-```
-
-### Fast
-```json
-{
-  "image": "<base64>",
-  "prompt": { "text": "dog" },
-  "multimask_output": false,
-  "max_masks": 1,
-  "output": "points"
-}
-```
-
-## Error Handling Contract
-Handle these API errors explicitly:
-- `INVALID_IMAGE` (400): base64/image decode issue.
-- `INVALID_PROMPT` (400): malformed prompt or multiple prompt types.
-- `EMPTY_RESULT` (400): no masks returned.
-- `MODEL_ERROR` (500): inference failure.
-
-Retry only for transient server failures (`MODEL_ERROR`), not for invalid input errors.
-
-## Response Parsing Rules
-- If `output="masks"`, read `response.masks[].mask_rle` and `confidence`.
-- If `output="points"`, read `response.points[].point` and `confidence`.
-- Use `response.meta` for telemetry (`prompt_type`, dimensions, and multimask mode).
+Handle errors explicitly:
+- `INVALID_IMAGE` (400)
+- `EMPTY_RESULT` (400)
+- `MODEL_ERROR` (500)
 
 ## References
-- Read [references/segment-api.md](references/segment-api.md) for endpoint field details and language-specific request snippets.
+- Read [references/segment-api.md](references/segment-api.md) for request/response examples.

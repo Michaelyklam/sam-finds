@@ -1,6 +1,6 @@
 # SAM Finds
 
-A FastAPI service wrapping Meta's [Segment Anything Model 3](https://github.com/facebookresearch/sam3). Accepts an image + prompt and returns ranked segmentation masks with COCO RLE encoding and confidence scores.
+A FastAPI service wrapping Meta's [Segment Anything Model 3](https://github.com/facebookresearch/sam3). It includes a strict LLM-friendly endpoint (`/v1/sam/segment/text-points`) for text-in/clickable-point-out workflows, plus the advanced endpoint (`/v1/sam/segment`) for full prompt/output control.
 
 ## Quick Start
 
@@ -23,7 +23,8 @@ hostname -I | awk '{print $1}'
 Then from another device:
 
 - **Viewer**: `http://<HOST_IP>:8000/`
-- **API**: `http://<HOST_IP>:8000/v1/sam/segment`
+- **LLM API (recommended)**: `http://<HOST_IP>:8000/v1/sam/segment/text-points`
+- **Advanced API**: `http://<HOST_IP>:8000/v1/sam/segment`
 
 Example — segment an image from a phone/laptop on the same Wi-Fi:
 
@@ -31,15 +32,10 @@ Example — segment an image from a phone/laptop on the same Wi-Fi:
 # Encode an image and call the API
 BASE64=$(base64 -w0 photo.jpg)
 
-# Get masks (default)
-curl -s http://192.168.0.10:8000/v1/sam/segment \
+# LLM-safe endpoint (text in, points out)
+curl -s http://192.168.0.10:8000/v1/sam/segment/text-points \
   -H 'Content-Type: application/json' \
-  -d "{\"image\":\"$BASE64\",\"prompt\":{\"text\":\"dog\"}}" | jq .
-
-# Get centroid points instead
-curl -s http://192.168.0.10:8000/v1/sam/segment \
-  -H 'Content-Type: application/json' \
-  -d "{\"image\":\"$BASE64\",\"prompt\":{\"text\":\"dog\"},\"output\":\"points\"}" | jq .
+  -d "{\"image\":\"$BASE64\",\"text\":\"dog\"}" | jq .
 ```
 
 ### Requirements
@@ -50,7 +46,47 @@ curl -s http://192.168.0.10:8000/v1/sam/segment \
 
 ## API
 
-### `POST /v1/sam/segment`
+### `POST /v1/sam/segment/text-points` (recommended for LLMs)
+
+Text-only segmentation endpoint that returns clickable centroid points.
+
+#### Request
+
+```json
+{
+  "image": "<base64-encoded PNG or JPEG>",
+  "text": "dog on the left"
+}
+```
+
+Server behavior is fixed for stable LLM usage:
+- Uses text prompt internally
+- `output="points"`
+- `multimask_output=false`
+- `max_masks=1`
+
+#### Response
+
+```json
+{
+  "points": [
+    {
+      "id": "0",
+      "confidence": 0.97,
+      "point": { "x": 412.35, "y": 301.78 }
+    }
+  ],
+  "meta": {
+    "image_width": 1200,
+    "image_height": 1602,
+    "model": "sam3",
+    "prompt_type": "text",
+    "multimask_output": false
+  }
+}
+```
+
+### `POST /v1/sam/segment` (advanced)
 
 Segment an image using a text, box, or point prompt.
 
@@ -170,7 +206,7 @@ app/
 ├── sam_service.py    # SAM3 inference wrapper (Sam3Processor)
 ├── errors.py         # SAMError exception + JSON error handler
 └── routes/
-    └── segment.py    # POST /v1/sam/segment handler
+    └── segment.py    # Segmentation route handlers
 Dockerfile            # PyTorch 2.9.0 + CUDA 13.0, SAM3 from git, model pre-downloaded
 docker-compose.yml    # GPU passthrough, HF cache volume
 test.html             # Interactive mask viewer (served at /)
