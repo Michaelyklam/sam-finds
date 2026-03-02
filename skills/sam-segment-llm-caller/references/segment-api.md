@@ -6,11 +6,16 @@
 - Path: `/v1/sam/segment/text-points`
 - Content-Type: `application/json`
 
+Local network URL (for other devices on same LAN):
+- `http://192.168.0.10:8000/v1/sam/segment/text-points`
+- Example: `http://192.168.0.10:8000/v1/sam/segment/text-points`
+- Shared base URL for all clients: `http://192.168.0.10:8000`
+
 Request:
 ```json
 {
   "image": "<base64 PNG or JPEG>",
-  "text": "red coffee mug near the keyboard"
+  "text": "gray roll of duct tape"
 }
 ```
 
@@ -38,6 +43,7 @@ Contract notes:
 - Endpoint accepts text only.
 - Endpoint returns points only.
 - Server enforces balanced settings (`multimask_output=false`, `max_masks=1`).
+- Prefer object-attribute phrases and avoid relational/spatial wording (`near`, `left of`, `on top of`).
 
 ## Errors
 - `INVALID_IMAGE` (400)
@@ -49,19 +55,19 @@ Contract notes:
 ### curl
 ```bash
 BASE64=$(base64 -w0 image.jpg)
-curl -s http://localhost:8000/v1/sam/segment/text-points \
+curl -s http://192.168.0.10:8000/v1/sam/segment/text-points \
   -H 'Content-Type: application/json' \
-  -d "{\"image\":\"$BASE64\",\"text\":\"red coffee mug near the keyboard\"}"
+  -d "{\"image\":\"$BASE64\",\"text\":\"gray roll of duct tape\"}"
 ```
 
 ### JavaScript (fetch)
 ```js
 const payload = {
   image: base64Image,
-  text: "red coffee mug near the keyboard",
+  text: "black camera",
 };
 
-const res = await fetch("http://localhost:8000/v1/sam/segment/text-points", {
+const res = await fetch("http://192.168.0.10:8000/v1/sam/segment/text-points", {
   method: "POST",
   headers: { "Content-Type": "application/json" },
   body: JSON.stringify(payload),
@@ -77,11 +83,11 @@ import requests
 
 payload = {
     "image": base64_image,
-    "text": "red coffee mug near the keyboard",
+    "text": "white computer mouse",
 }
 
 resp = requests.post(
-    "http://localhost:8000/v1/sam/segment/text-points",
+    "http://192.168.0.10:8000/v1/sam/segment/text-points",
     json=payload,
     timeout=30,
 )

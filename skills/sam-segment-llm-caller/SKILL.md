@@ -11,6 +11,7 @@ Turn natural-language intent into a high-quality text prompt and call `/v1/sam/s
 ## Fixed API Contract
 Use only this endpoint for LLM-generated calls:
 - `POST /v1/sam/segment/text-points`
+- URL for devices on the same local network: `http://192.168.0.10:8000/v1/sam/segment/text-points`
 
 Request body:
 ```json
@@ -20,12 +21,11 @@ Request body:
 }
 ```
 
-Do not use:
-- `prompt.box`
-- `prompt.points`
-- output mode selection
+This endpoint only accepts `image` and `text`, and always returns point output with server-enforced balanced settings for click workflows.
+Use one shared base URL for all clients: `http://192.168.0.10:8000`.
 
-The backend already enforces balanced behavior and returns points for click workflows.
+Example with a concrete host IP:
+- `http://192.168.0.10:8000/v1/sam/segment/text-points`
 
 ## Workflow
 1. Determine the exact target object from user intent.
@@ -35,18 +35,24 @@ The backend already enforces balanced behavior and returns points for click work
 
 ## Prompt Wording Rules
 Use these rules to maximize hit rate:
-- Start with the object noun: `backpack`, `dog`, `blue button`.
-- Add one or two discriminators: color, size, side, relation.
+- Start with the object noun: `mug`, `camera`, `mouse`, `duct tape`.
+- Add one or two intrinsic discriminators: color, material, shape, brand-like appearance.
 - Keep phrases short and concrete.
+- Avoid relational or scene-reasoning language (`near`, `next to`, `on top of`, `left of`, `right of`).
 - Avoid coordinates, pixel values, and geometry instructions.
 - Avoid multi-object requests in one prompt.
 
 Good examples:
-- `red coffee mug near the keyboard`
-- `leftmost person wearing a white shirt`
-- `blue submit button at the bottom`
+- `gray roll of duct tape`
+- `black mug`
+- `white computer mouse`
+- `black camera`
+- `red X button`
 
 Weak examples:
+- `red mug near the keyboard`
+- `object on the left side`
+- `person next to the bike`
 - `object at x=420 y=300`
 - `find everything important`
 - `person and bike and car`
@@ -55,7 +61,7 @@ Weak examples:
 When user asks to call the API, return:
 1. One executable code snippet in requested language.
 2. The exact JSON payload.
-3. One-line explanation of why the `text` phrasing should disambiguate the target.
+3. One-line explanation of why the attribute-based `text` phrasing should disambiguate the target.
 
 ## Response Handling
 Read the first returned point for click automation:
