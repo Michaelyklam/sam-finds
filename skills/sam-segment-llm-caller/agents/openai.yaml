@@ -1,0 +1,4 @@
+interface:
+  display_name: "SAM Segment LLM Caller"
+  short_description: "Build and tune SAM segment API requests."
+  default_prompt: "Construct robust /v1/sam/segment calls from user intent, choose prompt/output settings, and optimize for performance tradeoffs."
