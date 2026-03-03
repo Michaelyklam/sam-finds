@@ -48,6 +48,11 @@ Response:
 
 Request/response schema matches `/v1/sam/segment` (`prompt`, `output`, `max_masks`), but text prompts are OCR-assisted.
 
+Text prompt mode:
+- `text_mode: "screen_text"` enables OCR assist.
+- `text_mode: "visual"` bypasses OCR and uses plain SAM text prompting.
+- `text_mode` is required.
+
 ## Errors
 - `INVALID_IMAGE` (400)
 - `EMPTY_RESULT` (400)

@@ -88,6 +88,8 @@ def test_prefers_paddle_gpu_when_available(monkeypatch) -> None:
     assert _FakePaddleOCR.init_calls == 1
     assert _FakePaddleOCR.init_kwargs is not None
     assert _FakePaddleOCR.init_kwargs["device"] == "gpu"
+    assert _FakePaddleOCR.init_kwargs["use_doc_orientation_classify"] is False
+    assert _FakePaddleOCR.init_kwargs["use_doc_unwarping"] is False
 
 
 def test_falls_back_to_easyocr_cpu_when_paddle_gpu_unavailable(monkeypatch) -> None:

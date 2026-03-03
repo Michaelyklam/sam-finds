@@ -36,12 +36,12 @@ BASE64=$(base64 -w0 photo.jpg)
 # LLM-safe endpoint (text in, points out)
 curl -s http://192.168.0.10:8000/v1/sam/segment/text-points \
   -H 'Content-Type: application/json' \
-  -d "{\"image\":\"$BASE64\",\"text\":\"dog\"}" | jq .
+  -d "{\"image\":\"$BASE64\",\"text\":\"dog\",\"text_mode\":\"visual\"}" | jq .
 
 # OCR-assisted UI endpoint (same masks/points contract as /v1/sam/segment)
 curl -s http://192.168.0.10:8000/v1/ui/segment \
   -H 'Content-Type: application/json' \
-  -d "{\"image\":\"$BASE64\",\"prompt\":{\"text\":\"View Leaderboard button\"},\"output\":\"points\"}" | jq .
+  -d "{\"image\":\"$BASE64\",\"prompt\":{\"text\":\"View Leaderboard button\"},\"text_mode\":\"screen_text\",\"output\":\"points\"}" | jq .
 ```
 
 ### Requirements
@@ -61,7 +61,8 @@ Text-only segmentation endpoint that returns clickable centroid points.
 ```json
 {
   "image": "<base64-encoded PNG or JPEG>",
-  "text": "red X button"
+  "text": "red X button",
+  "text_mode": "visual"
 }
 ```
 
@@ -70,6 +71,11 @@ Server behavior is fixed for stable LLM usage:
 - `output="points"`
 - `multimask_output=false`
 - `max_masks=1`
+
+`text_mode` controls text prompt behavior:
+- `"visual"`: treat `text` as visual-object description (skip OCR assist).
+- `"screen_text"`: treat `text` as on-screen label text (use OCR-native anchors/points).
+- `text_mode` is required.
 
 #### Response
 
@@ -98,9 +104,14 @@ Same request/response format as `/v1/sam/segment`, but text prompts are OCR-assi
 
 For text prompts, the endpoint:
 - runs OCR to find matching text boxes,
-- uses those boxes to anchor SAM predictions,
+- returns OCR-native points/masks from matched text regions,
 - falls back to baseline SAM text prompting when OCR does not find useful anchors.
 - uses PaddleOCR on GPU when CUDA is available, and falls back to EasyOCR on CPU if Paddle GPU is unavailable or fails.
+
+`text_mode` behavior for `/v1/ui/segment`:
+- `"screen_text"`: OCR-assisted text matching with OCR-native points/masks.
+- `"visual"`: bypass OCR and use plain SAM text prompting.
+- `text_mode` is required.
 
 For box and point prompts, behavior matches `/v1/sam/segment`.
 
@@ -154,6 +165,7 @@ Segment an image using a text, box, or point prompt.
 {
   "image": "<base64-encoded PNG or JPEG>",
   "prompt": { ... },
+  "text_mode": "visual",
   "multimask_output": true,
   "max_masks": 3,
   "output": "masks"
@@ -176,6 +188,11 @@ The `prompt` field must contain **exactly one** of:
 | Points | `points` | List of `{x, y, label}` (1=fg, 0=bg) | `{"points": [{"x": 520, "y": 375, "label": 1}]}` |
 
 **Text prompts** are SAM3's primary interface and produce the best results. Box prompts give very high confidence when the box tightly fits the object. Point prompts are approximated via small bounding boxes (SAM3's processor doesn't natively support point prompts).
+
+`text_mode` for text prompts:
+- `"visual"`: use plain SAM text prompting.
+- `"screen_text"`: run OCR-assisted text matching before SAM.
+- `text_mode` is required.
 
 #### Response
 
@@ -223,12 +240,13 @@ Each point is the centroid (center of mass) of the corresponding segmentation ma
 #### Errors
 
 ```json
-{"error": {"code": "INVALID_IMAGE", "message": "Could not decode image: ..."}}
+{"error": {"code": "INVALID_IMAGE", "message": "Could not decode image: ...", "hint": "Send `image` as base64-encoded PNG/JPEG bytes."}}
 ```
 
 | Code | HTTP Status | Description |
 |------|-------------|-------------|
 | `INVALID_IMAGE` | 400 | Base64 decoding or image parsing failed |
+| `INVALID_REQUEST` | 422 | Request payload/schema validation failed (includes fix hint) |
 | `INVALID_PROMPT` | 400 | Prompt field missing or malformed |
 | `MODEL_ERROR` | 500 | SAM3 inference failed |
 | `EMPTY_RESULT` | 400 | Model returned no masks for the given prompt |

@@ -28,6 +28,10 @@ def _decode_base64_image(image_b64: str) -> Image.Image:
         raise SAMError(INVALID_IMAGE, f"Could not decode image: {exc}")
 
 
+def _should_use_ocr_for_segment_text(*, text_mode: str) -> bool:
+    return text_mode == "screen_text"
+
+
 @router.post("/v1/sam/segment", response_model=SegmentResponse)
 def segment(request: Request, body: SegmentRequest) -> SegmentResponse:
     image = _decode_base64_image(body.image)
@@ -37,7 +41,7 @@ def segment(request: Request, body: SegmentRequest) -> SegmentResponse:
     mask_results = []
     point_results = []
 
-    if body.prompt.text is not None:
+    if body.prompt.text is not None and _should_use_ocr_for_segment_text(text_mode=body.text_mode):
         ocr_service = request.app.state.ocr_service
         mask_results, point_results, used_ocr_assist = predict_text_with_ocr_assist(
             image=image,
@@ -45,6 +49,7 @@ def segment(request: Request, body: SegmentRequest) -> SegmentResponse:
             sam_service=sam_service,
             ocr_service=ocr_service,
             max_masks=body.max_masks,
+            use_sam_refine=False,
         )
 
     if not mask_results and not point_results:
@@ -73,14 +78,19 @@ def segment_text_points(request: Request, body: TextPointsRequest) -> TextPoints
     image = _decode_base64_image(body.image)
 
     sam_service = request.app.state.sam_service
-    ocr_service = request.app.state.ocr_service
-    _mask_results, point_results, used_ocr_assist = predict_text_with_ocr_assist(
-        image=image,
-        target_text=body.text,
-        sam_service=sam_service,
-        ocr_service=ocr_service,
-        max_masks=1,
-    )
+    point_results = []
+    used_ocr_assist = False
+
+    if _should_use_ocr_for_segment_text(text_mode=body.text_mode):
+        ocr_service = request.app.state.ocr_service
+        _mask_results, point_results, used_ocr_assist = predict_text_with_ocr_assist(
+            image=image,
+            target_text=body.text,
+            sam_service=sam_service,
+            ocr_service=ocr_service,
+            max_masks=1,
+            use_sam_refine=False,
+        )
 
     if not point_results:
         _mask_results, point_results = sam_service.predict(

@@ -115,6 +115,7 @@ def test_ui_segment_points_text_uses_ocr_assist(client: TestClient) -> None:
     payload = {
         "image": _make_image_base64(),
         "prompt": {"text": "View Leaderboard button"},
+        "text_mode": "screen_text",
         "multimask_output": True,
         "max_masks": 2,
         "output": "points",
@@ -134,6 +135,7 @@ def test_ui_segment_masks_text_uses_ocr_assist(client: TestClient) -> None:
     payload = {
         "image": _make_image_base64(),
         "prompt": {"text": "Okay"},
+        "text_mode": "screen_text",
         "multimask_output": True,
         "max_masks": 1,
         "output": "masks",
@@ -147,10 +149,33 @@ def test_ui_segment_masks_text_uses_ocr_assist(client: TestClient) -> None:
     assert body["meta"]["model"] == "sam3+ocr"
 
 
+def test_ui_segment_screen_text_mode_does_not_require_sam_refine(client: TestClient) -> None:
+    def _sam_should_not_run(*_args, **_kwargs):
+        raise AssertionError("SAM refine should not run for OCR hits in screen_text mode")
+
+    client.app.state.sam_service.predict = _sam_should_not_run
+    payload = {
+        "image": _make_image_base64(),
+        "prompt": {"text": "Okay"},
+        "text_mode": "screen_text",
+        "multimask_output": True,
+        "max_masks": 1,
+        "output": "points",
+    }
+
+    response = client.post("/v1/ui/segment", json=payload)
+
+    assert response.status_code == 200
+    body = response.json()
+    assert len(body["points"]) == 1
+    assert body["meta"]["model"] == "sam3+ocr"
+
+
 def test_ui_segment_text_falls_back_to_plain_sam_when_no_ocr_match(client: TestClient) -> None:
     payload = {
         "image": _make_image_base64(),
         "prompt": {"text": "cat"},
+        "text_mode": "screen_text",
         "multimask_output": True,
         "max_masks": 1,
         "output": "points",
@@ -162,3 +187,43 @@ def test_ui_segment_text_falls_back_to_plain_sam_when_no_ocr_match(client: TestC
     body = response.json()
     assert len(body["points"]) == 1
     assert body["meta"]["model"] == "sam3"
+
+
+def test_ui_segment_visual_mode_bypasses_ocr(client: TestClient) -> None:
+    def _should_not_run(_image):
+        raise AssertionError("OCR should not run when text_mode=visual")
+
+    client.app.state.ocr_service.detect_text = _should_not_run
+    payload = {
+        "image": _make_image_base64(),
+        "prompt": {"text": "View Leaderboard button"},
+        "text_mode": "visual",
+        "multimask_output": True,
+        "max_masks": 1,
+        "output": "points",
+    }
+
+    response = client.post("/v1/ui/segment", json=payload)
+
+    assert response.status_code == 200
+    body = response.json()
+    assert len(body["points"]) == 1
+    assert body["meta"]["model"] == "sam3"
+
+
+def test_ui_segment_requires_text_mode_with_hint(client: TestClient) -> None:
+    payload = {
+        "image": _make_image_base64(),
+        "prompt": {"text": "View Leaderboard button"},
+        "multimask_output": True,
+        "max_masks": 1,
+        "output": "points",
+    }
+
+    response = client.post("/v1/ui/segment", json=payload)
+
+    assert response.status_code == 422
+    body = response.json()
+    assert body["error"]["code"] == "INVALID_REQUEST"
+    assert "text_mode" in body["error"]["hint"]
+    assert "screen_text" in body["error"]["hint"]

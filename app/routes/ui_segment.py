@@ -21,6 +21,10 @@ def _decode_base64_image(image_b64: str) -> Image.Image:
         raise SAMError(INVALID_IMAGE, f"Could not decode image: {exc}")
 
 
+def _should_use_ocr_for_ui_text(*, text_mode: str) -> bool:
+    return text_mode == "screen_text"
+
+
 @router.post("/v1/ui/segment", response_model=SegmentResponse)
 def ui_segment(request: Request, body: SegmentRequest) -> SegmentResponse:
     image = _decode_base64_image(body.image)
@@ -30,7 +34,7 @@ def ui_segment(request: Request, body: SegmentRequest) -> SegmentResponse:
     mask_results = []
     point_results = []
 
-    if body.prompt.text is not None:
+    if body.prompt.text is not None and _should_use_ocr_for_ui_text(text_mode=body.text_mode):
         ocr_service = request.app.state.ocr_service
         mask_results, point_results, used_ocr_assist = predict_text_with_ocr_assist(
             image=image,
@@ -38,6 +42,7 @@ def ui_segment(request: Request, body: SegmentRequest) -> SegmentResponse:
             sam_service=sam_service,
             ocr_service=ocr_service,
             max_masks=body.max_masks,
+            use_sam_refine=False,
         )
 
     if not mask_results and not point_results:

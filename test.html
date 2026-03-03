@@ -30,6 +30,7 @@
   }
   .mask-chip.active { border-color: #fff; }
   .prompt-info { font-size: 0.8rem; color: #888; margin-top: 4px; }
+  .mode-info { font-size: 0.8rem; color: #9ca3af; margin-top: 4px; }
   #textPrompt { width: 200px; }
   .text-row { display: none; gap: 8px; align-items: center; }
   .text-row.visible { display: flex; }
@@ -53,6 +54,12 @@
       <option value="points">Points</option>
     </select>
   </label>
+  <label>Text mode:
+    <select id="textMode">
+      <option value="screen_text">Screen text (OCR)</option>
+      <option value="visual">Visual object</option>
+    </select>
+  </label>
   <label>Max: <input type="number" id="maxMasks" value="3" min="1" max="5" style="width:50px"></label>
   <button id="run" disabled>Segment</button>
 </div>
@@ -60,6 +67,7 @@
   <label>Describe object: <input type="text" id="textPrompt" placeholder="e.g. cat, person, shoe"></label>
 </div>
 <div class="prompt-info" id="promptInfo">Load an image and type what to segment.</div>
+<div class="mode-info">`text_mode` is required by API. Use <b>Screen text (OCR)</b> for labels and <b>Visual object</b> for non-text objects.</div>
 <div id="status"></div>
 
 <div class="canvas-wrap">
@@ -101,13 +109,21 @@ const promptType = document.getElementById('promptType');
 const textRow = document.getElementById('textRow');
 const textPrompt = document.getElementById('textPrompt');
 const promptInfo = document.getElementById('promptInfo');
+const textModeSelect = document.getElementById('textMode');
 
 promptType.addEventListener('change', () => {
   const v = promptType.value;
   textRow.classList.toggle('visible', v === 'text');
-  if (v === 'text') promptInfo.textContent = 'Load an image and type what to segment.';
-  else if (v === 'box') promptInfo.textContent = 'Load an image, then drag a box on it.';
-  else promptInfo.textContent = 'Load an image, then click to place a point.';
+  if (v === 'text') {
+    textModeSelect.disabled = false;
+    promptInfo.textContent = 'Load an image and type what to segment. Use Screen text for labels, Visual object for object descriptions.';
+  } else if (v === 'box') {
+    textModeSelect.disabled = true;
+    promptInfo.textContent = 'Load an image, then drag a box on it. Text mode is ignored for box prompts.';
+  } else {
+    textModeSelect.disabled = true;
+    promptInfo.textContent = 'Load an image, then click to place a point. Text mode is ignored for point prompts.';
+  }
   point = null; box = null;
   updateRunBtn();
 });
@@ -237,6 +253,7 @@ runBtn.addEventListener('click', async () => {
   const body = {
     image: imgBase64,
     prompt,
+    text_mode: textModeSelect.value,
     multimask_output: true,
     max_masks: parseInt(document.getElementById('maxMasks').value) || 3,
     output: outputMode,
@@ -250,7 +267,14 @@ runBtn.addEventListener('click', async () => {
     });
     const data = await res.json();
     if (data.error) {
-      status(`Error: ${data.error.code} \u2014 ${data.error.message}`, true);
+      const hint = data.error.hint ? ` | Hint: ${data.error.hint}` : '';
+      let details = '';
+      if (Array.isArray(data.error.details) && data.error.details.length > 0) {
+        const d = data.error.details[0];
+        const loc = Array.isArray(d.loc) ? d.loc.join('.') : 'body';
+        details = ` | Detail: ${loc} - ${d.msg || 'invalid value'}`;
+      }
+      status(`Error: ${data.error.code} \u2014 ${data.error.message}${hint}${details}`, true);
       runBtn.disabled = false;
       return;
     }

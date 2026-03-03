@@ -17,6 +17,11 @@ Use endpoints by task:
 - **Need mask/points format with OCR assistance**: `POST /v1/ui/segment`
 - **General object click (no text disambiguation needed)**: `POST /v1/sam/segment/text-points`
 
+Use `text_mode` for text prompts:
+- `screen_text`: OCR-assisted matching for visible labels.
+- `visual`: plain SAM text prompting for visual object descriptions.
+- `text_mode` is required in requests.
+
 `/v1/ui/click-targets` request:
 ```json
 {

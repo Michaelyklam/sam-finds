@@ -1,8 +1,11 @@
 from __future__ import annotations
 
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field, field_validator, model_validator
+
+
+TextMode = Literal["visual", "screen_text"]
 
 
 class PointPrompt(BaseModel):
@@ -46,6 +49,7 @@ class Prompt(BaseModel):
 class SegmentRequest(BaseModel):
     image: str  # base64 PNG/JPEG
     prompt: Prompt
+    text_mode: TextMode
     multimask_output: bool = True
     max_masks: int = 3
     output: Literal["masks", "points"] = "masks"
@@ -54,6 +58,7 @@ class SegmentRequest(BaseModel):
 class TextPointsRequest(BaseModel):
     image: str  # base64 PNG/JPEG
     text: str
+    text_mode: TextMode
 
     @field_validator("text")
     @classmethod
@@ -153,6 +158,8 @@ class SegmentResponse(BaseModel):
 class ErrorDetail(BaseModel):
     code: str
     message: str
+    hint: str | None = None
+    details: list[dict[str, Any]] | None = None
 
 
 class ErrorResponse(BaseModel):

@@ -21,6 +21,7 @@ class OCRDetection:
     y1: int
     x2: int
     y2: int
+    polygon: list[tuple[int, int]] | None = None
 
 
 class OCRService:
@@ -55,6 +56,8 @@ class OCRService:
         try:
             self.engine = PaddleOCR(
                 use_textline_orientation=False,
+                use_doc_orientation_classify=False,
+                use_doc_unwarping=False,
                 lang=self.lang,
                 text_det_limit_side_len=self.det_limit_side_len,
                 device="gpu",
@@ -200,10 +203,14 @@ class OCRService:
 
     def _detection_from_points(self, points: Any, text: str, confidence: float) -> OCRDetection | None:
         try:
-            xs = [int(round(float(p[0]))) for p in points]
-            ys = [int(round(float(p[1]))) for p in points]
+            polygon = [
+                (int(round(float(p[0]))), int(round(float(p[1]))))
+                for p in points
+            ]
         except Exception:
             return None
+        xs = [p[0] for p in polygon]
+        ys = [p[1] for p in polygon]
         if not xs or not ys:
             return None
 
@@ -214,4 +221,5 @@ class OCRService:
             y1=min(ys),
             x2=max(xs),
             y2=max(ys),
+            polygon=polygon,
         )
