@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, field_validator, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 class PointPrompt(BaseModel):
@@ -64,6 +64,21 @@ class TextPointsRequest(BaseModel):
         return normalized
 
 
+class ClickTargetsRequest(BaseModel):
+    image: str  # base64 PNG/JPEG
+    target_text: str
+    max_candidates: int = Field(default=3, ge=1, le=5)
+    use_sam_refine: bool = True
+
+    @field_validator("target_text")
+    @classmethod
+    def non_empty_target_text(cls, value: str) -> str:
+        normalized = value.strip()
+        if not normalized:
+            raise ValueError("target_text must be non-empty")
+        return normalized
+
+
 class MaskRLE(BaseModel):
     counts: str
     size: list[int]
@@ -97,6 +112,36 @@ class Meta(BaseModel):
 class TextPointsResponse(BaseModel):
     points: list[PointResult]
     meta: Meta
+
+
+class Rect(BaseModel):
+    x1: int
+    y1: int
+    x2: int
+    y2: int
+
+
+class ClickCandidate(BaseModel):
+    id: str
+    point: CentroidPoint
+    score: float
+    ocr_text: str
+    ocr_confidence: float
+    sam_confidence: float | None = None
+    bbox: Rect
+
+
+class ClickTargetsMeta(BaseModel):
+    pipeline: str
+    target_text: str
+    num_ocr_hits: int
+    num_candidates: int
+    latency_ms: int
+
+
+class ClickTargetsResponse(BaseModel):
+    candidates: list[ClickCandidate]
+    meta: ClickTargetsMeta
 
 
 class SegmentResponse(BaseModel):

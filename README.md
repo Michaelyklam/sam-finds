@@ -24,6 +24,7 @@ Then from another device:
 
 - **Viewer**: `http://<HOST_IP>:8000/`
 - **LLM API (recommended)**: `http://<HOST_IP>:8000/v1/sam/segment/text-points`
+- **UI OCR API (tester + named buttons)**: `http://<HOST_IP>:8000/v1/ui/segment`
 - **Advanced API**: `http://<HOST_IP>:8000/v1/sam/segment`
 
 Example — segment an image from a phone/laptop on the same Wi-Fi:
@@ -36,6 +37,11 @@ BASE64=$(base64 -w0 photo.jpg)
 curl -s http://192.168.0.10:8000/v1/sam/segment/text-points \
   -H 'Content-Type: application/json' \
   -d "{\"image\":\"$BASE64\",\"text\":\"dog\"}" | jq .
+
+# OCR-assisted UI endpoint (same masks/points contract as /v1/sam/segment)
+curl -s http://192.168.0.10:8000/v1/ui/segment \
+  -H 'Content-Type: application/json' \
+  -d "{\"image\":\"$BASE64\",\"prompt\":{\"text\":\"View Leaderboard button\"},\"output\":\"points\"}" | jq .
 ```
 
 ### Requirements
@@ -55,7 +61,7 @@ Text-only segmentation endpoint that returns clickable centroid points.
 ```json
 {
   "image": "<base64-encoded PNG or JPEG>",
-  "text": "dog on the left"
+  "text": "red X button"
 }
 ```
 
@@ -82,6 +88,58 @@ Server behavior is fixed for stable LLM usage:
     "model": "sam3",
     "prompt_type": "text",
     "multimask_output": false
+  }
+}
+```
+
+### `POST /v1/ui/segment` (OCR-assisted UI targeting)
+
+Same request/response format as `/v1/sam/segment`, but text prompts are OCR-assisted to improve targeting when UI elements look visually identical and differ mainly by label text.
+
+For text prompts, the endpoint:
+- runs OCR to find matching text boxes,
+- uses those boxes to anchor SAM predictions,
+- falls back to baseline SAM text prompting when OCR does not find useful anchors.
+- uses PaddleOCR on GPU when CUDA is available, and falls back to EasyOCR on CPU if Paddle GPU is unavailable or fails.
+
+For box and point prompts, behavior matches `/v1/sam/segment`.
+
+### `POST /v1/ui/click-targets` (named control targeting)
+
+Text-aware endpoint for clicking specific labeled controls when multiple UI elements look visually similar.
+
+#### Request
+
+```json
+{
+  "image": "<base64-encoded PNG or JPEG>",
+  "target_text": "View Leaderboard button",
+  "max_candidates": 3,
+  "use_sam_refine": true
+}
+```
+
+#### Response
+
+```json
+{
+  "candidates": [
+    {
+      "id": "0",
+      "point": { "x": 485.99, "y": 1171.94 },
+      "score": 0.91,
+      "ocr_text": "View Leaderboard",
+      "ocr_confidence": 0.96,
+      "sam_confidence": 0.78,
+      "bbox": { "x1": 412, "y1": 1110, "x2": 560, "y2": 1234 }
+    }
+  ],
+  "meta": {
+    "pipeline": "ocr+sam",
+    "target_text": "View Leaderboard button",
+    "num_ocr_hits": 2,
+    "num_candidates": 1,
+    "latency_ms": 842
   }
 }
 ```

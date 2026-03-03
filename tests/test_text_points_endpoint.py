@@ -7,6 +7,7 @@ from PIL import Image
 
 from app import main as main_module
 from app.errors import EMPTY_RESULT, SAMError
+from app.ocr_service import OCRDetection
 from app.schemas import CentroidPoint, MaskRLE, MaskResult, PointResult
 
 
@@ -22,7 +23,7 @@ class FakeSAMService:
         return
 
     def predict(self, image, prompt, *, multimask_output=True, max_masks=3):
-        if prompt.text == "no object":
+        if prompt.text == "zzzzqvbnm no such object":
             raise SAMError(EMPTY_RESULT, "Model returned no masks")
 
         mask = MaskResult(
@@ -38,9 +39,21 @@ class FakeSAMService:
         return [mask][:max_masks], [point][:max_masks]
 
 
+class FakeOCRService:
+    def load(self) -> None:
+        return
+
+    def detect_text(self, _image):
+        return [
+            OCRDetection(text="red coffee mug", confidence=0.97, x1=1, y1=1, x2=6, y2=6),
+            OCRDetection(text="shoe", confidence=0.91, x1=1, y1=1, x2=6, y2=6),
+        ]
+
+
 @pytest.fixture
 def client(monkeypatch):
     monkeypatch.setattr(main_module, "SAMService", FakeSAMService)
+    monkeypatch.setattr(main_module, "OCRService", FakeOCRService)
     with TestClient(main_module.app) as test_client:
         yield test_client
 
@@ -77,7 +90,8 @@ def test_text_points_invalid_image(client: TestClient) -> None:
 
 
 def test_text_points_empty_result(client: TestClient) -> None:
-    payload = {"image": _make_image_base64(), "text": "no object"}
+    client.app.state.ocr_service.detect_text = lambda _image: []
+    payload = {"image": _make_image_base64(), "text": "zzzzqvbnm no such object"}
 
     response = client.post("/v1/sam/segment/text-points", json=payload)
 

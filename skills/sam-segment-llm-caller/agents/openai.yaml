@@ -1,4 +1,4 @@
 interface:
   display_name: "SAM Segment LLM Caller"
-  short_description: "Write text-to-point SAM API calls."
-  default_prompt: "Create precise /v1/sam/segment/text-points requests from user intent and improve wording for accurate clickable points."
+  short_description: "Call OCR+SAM UI targeting APIs."
+  default_prompt: "Choose between /v1/ui/click-targets, /v1/ui/segment, and /v1/sam/segment/text-points based on user intent and produce runnable request code."
