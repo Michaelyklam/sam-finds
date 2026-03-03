@@ -18,7 +18,7 @@ Use endpoints by task:
 - **General object click (no text disambiguation needed)**: `POST /v1/sam/segment/text-points`
 
 Use `text_mode` for text prompts:
-- `screen_text`: OCR-assisted matching for visible labels.
+- `screen_text`: OCR-assisted matching for visible labels, returning OCR-native points/masks.
 - `visual`: plain SAM text prompting for visual object descriptions.
 - `text_mode` is required in requests.
 
@@ -33,6 +33,21 @@ Use `text_mode` for text prompts:
 ```
 
 `/v1/ui/segment` keeps the existing prompt/output interaction format and returns `masks` or `points`.
+For text prompts, always include:
+```json
+{
+  "text_mode": "screen_text"
+}
+```
+
+`/v1/sam/segment/text-points` request:
+```json
+{
+  "image": "<base64 PNG/JPEG>",
+  "text": "white computer mouse",
+  "text_mode": "visual"
+}
+```
 
 ## Workflow
 1. Determine whether text-labeled controls must be disambiguated.
@@ -47,6 +62,7 @@ Use these rules to maximize hit rate:
 - Add one or two intrinsic discriminators: color, material, shape, brand-like appearance.
 - Keep phrases short and concrete.
 - For button text targeting, use exact visible label text where possible.
+- Use `text_mode=screen_text` for on-screen words/buttons and `text_mode=visual` for non-text objects.
 - Avoid relational or scene-reasoning language (`near`, `next to`, `on top of`, `left of`, `right of`) as primary disambiguation.
 - Avoid coordinates, pixel values, and geometry instructions.
 - Avoid multi-object requests in one prompt.
@@ -76,12 +92,14 @@ When user asks to call the API, return:
 For `/v1/ui/click-targets`, use:
 - `response.candidates[0].point.x`
 - `response.candidates[0].point.y`
+- Optional ranking fields: `response.candidates[0].score`, `response.candidates[0].ocr_text`, `response.candidates[0].sam_confidence`
 
 For `/v1/ui/segment` or `/v1/sam/segment/text-points`, use:
 - `response.points[0].point.x`
 - `response.points[0].point.y`
 
 Handle errors explicitly:
+- `INVALID_REQUEST` (422)
 - `INVALID_IMAGE` (400)
 - `EMPTY_RESULT` (400)
 - `MODEL_ERROR` (500)

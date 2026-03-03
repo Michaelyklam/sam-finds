@@ -27,8 +27,12 @@ Response:
   "candidates": [
     {
       "id": "0",
-      "confidence": 0.97,
-      "point": {"x": 485.99, "y": 1171.94}
+      "point": {"x": 485.99, "y": 1171.94},
+      "score": 0.91,
+      "ocr_text": "View Leaderboard",
+      "ocr_confidence": 0.96,
+      "sam_confidence": 0.78,
+      "bbox": {"x1": 412, "y1": 1110, "x2": 560, "y2": 1234}
     }
   ],
   "meta": {
@@ -49,11 +53,46 @@ Response:
 Request/response schema matches `/v1/sam/segment` (`prompt`, `output`, `max_masks`), but text prompts are OCR-assisted.
 
 Text prompt mode:
-- `text_mode: "screen_text"` enables OCR assist.
+- `text_mode: "screen_text"` enables OCR assist and returns OCR-native points/masks.
 - `text_mode: "visual"` bypasses OCR and uses plain SAM text prompting.
 - `text_mode` is required.
 
+### LLM-friendly text to points
+- Method: `POST`
+- Path: `/v1/sam/segment/text-points`
+- Content-Type: `application/json`
+
+Request:
+```json
+{
+  "image": "<base64 PNG or JPEG>",
+  "text": "white computer mouse",
+  "text_mode": "visual"
+}
+```
+
+Response:
+```json
+{
+  "points": [
+    {
+      "id": "0",
+      "confidence": 0.97,
+      "point": {"x": 412.35, "y": 301.78}
+    }
+  ],
+  "meta": {
+    "image_width": 1200,
+    "image_height": 1602,
+    "model": "sam3",
+    "prompt_type": "text",
+    "multimask_output": false
+  }
+}
+```
+
 ## Errors
+- `INVALID_REQUEST` (422)
 - `INVALID_IMAGE` (400)
 - `EMPTY_RESULT` (400)
 - `MODEL_ERROR` (500)
