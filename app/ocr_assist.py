@@ -31,8 +31,8 @@ def _normalized_polygon(match: OCRMatch, *, image_width: int, image_height: int)
     if det.polygon and len(det.polygon) >= 3:
         points: list[tuple[int, int]] = []
         for px, py in det.polygon:
-            x = max(0, min(image_width - 1, int(px)))
-            y = max(0, min(image_height - 1, int(py)))
+            x = max(0, min(image_width, int(px)))
+            y = max(0, min(image_height, int(py)))
             points.append((x, y))
         return points
 

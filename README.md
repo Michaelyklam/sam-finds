@@ -6,11 +6,35 @@ A FastAPI service wrapping Meta's [Segment Anything Model 3](https://github.com/
 
 ```bash
 docker compose up --build -d
-# Model loads on first startup (~30s). Check readiness:
-docker compose logs -f
+# OCR and SAM models load on first startup. Check readiness:
+docker compose logs -f ocr-service sam-finds
 ```
 
-The API is available at `http://localhost:8000`. A built-in mask/point viewer is served at `/`.
+The SAM API is available at `http://localhost:8000`. The standalone OCR API is available at `http://localhost:8001`.
+A built-in mask/point viewer is served from `sam-finds` at `/`.
+
+### Services
+
+- `sam-finds`: `http://localhost:8000`
+- `ocr-service`: `http://localhost:8001`
+
+### Standalone OCR Service
+
+The OCR service is a standalone API for full-page text extraction that can be consumed directly by other apps or by `sam-finds` via `OCR_SERVICE_URL`.
+
+- Human-facing guide: [docs/ocr-service.md](docs/ocr-service.md)
+- Swagger UI: `http://localhost:8001/docs`
+- OpenAPI JSON: `http://localhost:8001/openapi.json`
+
+Compact OCR example:
+
+```bash
+BASE64=$(base64 -w0 screenshot.png)
+
+curl -s http://localhost:8001/v1/ocr/page \
+  -H 'Content-Type: application/json' \
+  -d "{\"image\":\"$BASE64\",\"include_polygons\":true}" | jq .
+```
 
 ### Network Access
 
@@ -26,6 +50,7 @@ Then from another device:
 - **LLM API (recommended)**: `http://<HOST_IP>:8000/v1/sam/segment/text-points`
 - **UI OCR API (tester + named buttons)**: `http://<HOST_IP>:8000/v1/ui/segment`
 - **Advanced API**: `http://<HOST_IP>:8000/v1/sam/segment`
+- **Standalone OCR API**: `http://<HOST_IP>:8001/v1/ocr/page`
 
 Example — segment an image from a phone/laptop on the same Wi-Fi:
 
@@ -98,6 +123,25 @@ Server behavior is fixed for stable LLM usage:
 }
 ```
 
+### Standalone OCR API
+
+The OCR service can run independently for other apps while `sam-finds` consumes it over HTTP via `OCR_SERVICE_URL=http://ocr-service:8001`.
+
+- Narrative guide: [docs/ocr-service.md](docs/ocr-service.md)
+- Swagger UI: `http://localhost:8001/docs`
+- OpenAPI JSON: `http://localhost:8001/openapi.json`
+
+Primary OCR endpoints:
+- `GET /v1/ocr/backend`
+- `POST /v1/ocr/page`
+
+Use the dedicated OCR guide for:
+- standalone deployment
+- request/response schema details
+- error handling
+- `curl`, JavaScript, and Python integration examples
+- operational notes for PaddleOCR/EasyOCR behavior
+
 ### `POST /v1/ui/segment` (OCR-assisted UI targeting)
 
 Same request/response format as `/v1/sam/segment`, but text prompts are OCR-assisted to improve targeting when UI elements look visually identical and differ mainly by label text.
@@ -106,7 +150,8 @@ For text prompts, the endpoint:
 - runs OCR to find matching text boxes,
 - returns OCR-native points/masks from matched text regions,
 - falls back to baseline SAM text prompting when OCR does not find useful anchors.
-- uses PaddleOCR on GPU when CUDA is available, and falls back to EasyOCR on CPU if Paddle GPU is unavailable or fails.
+- uses the external OCR service when `OCR_SERVICE_URL` is set, otherwise uses the local OCR backend.
+- the OCR backend prefers PaddleOCR on GPU when CUDA is available, and falls back to EasyOCR on CPU if Paddle GPU is unavailable or fails.
 
 `text_mode` behavior for `/v1/ui/segment`:
 - `"screen_text"`: OCR-assisted text matching with OCR-native points/masks.

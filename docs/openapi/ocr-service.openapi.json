@@ -1,0 +1,625 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Paddle OCR Service",
+    "summary": "Standalone OCR API used by sam-finds and external applications.",
+    "description": "A standalone OCR service for full-page text extraction. It powers sam-finds via `OCR_SERVICE_URL` and can be consumed directly by other apps through `/docs` and `/openapi.json`.",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/v1/ocr/backend": {
+      "get": {
+        "tags": [
+          "ocr"
+        ],
+        "summary": "Get OCR backend details",
+        "description": "Returns the currently active OCR backend, execution device, configured language set, and detector side length limit. External consumers can use this endpoint as a startup diagnostic and capability check before sending page OCR requests.",
+        "operationId": "getOcrBackend",
+        "responses": {
+          "200": {
+            "description": "OCR runtime information for the currently active backend.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OCRBackendResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The OCR backend was unavailable or failed during initialization or inference.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": {
+                    "code": "OCR_ERROR",
+                    "message": "OCR inference failed: backend unavailable",
+                    "hint": "If targeting visual objects, retry with `text_mode=visual` to bypass OCR."
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/ocr/page": {
+      "post": {
+        "tags": [
+          "ocr"
+        ],
+        "summary": "Run full-page OCR",
+        "description": "Performs full-page OCR on a base64-encoded PNG or JPEG image. The response includes a convenience `text` field plus structured detections with confidence scores, bounding boxes, and optional polygon geometry for downstream automation.",
+        "operationId": "postOcrPage",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OCRPageRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Full-page OCR results for the submitted image.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OCRPageResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The image could not be decoded from the provided base64 PNG or JPEG bytes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": {
+                    "code": "INVALID_IMAGE",
+                    "message": "Could not decode image: Incorrect padding",
+                    "hint": "Send `image` as base64-encoded PNG/JPEG bytes."
+                  }
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request body failed schema validation.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": {
+                    "code": "INVALID_REQUEST",
+                    "message": "Invalid request payload",
+                    "hint": "Fix request schema fields. `text_mode` is required: use `visual` for object descriptions or `screen_text` for on-screen text labels.",
+                    "details": [
+                      {
+                        "type": "missing",
+                        "loc": [
+                          "body",
+                          "image"
+                        ],
+                        "msg": "Field required",
+                        "input": {}
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The OCR backend was unavailable or failed during initialization or inference.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": {
+                    "code": "OCR_ERROR",
+                    "message": "OCR inference failed: backend unavailable",
+                    "hint": "If targeting visual objects, retry with `text_mode=visual` to bypass OCR."
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "ErrorDetail": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "title": "Code",
+            "description": "Stable machine-readable error code.",
+            "examples": [
+              "INVALID_IMAGE"
+            ]
+          },
+          "message": {
+            "type": "string",
+            "title": "Message",
+            "description": "Human-readable error message.",
+            "examples": [
+              "Could not decode image: Incorrect padding"
+            ]
+          },
+          "hint": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hint",
+            "description": "Optional remediation hint for clients.",
+            "examples": [
+              "Send `image` as base64-encoded PNG/JPEG bytes."
+            ]
+          },
+          "details": {
+            "anyOf": [
+              {
+                "items": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Details",
+            "description": "Optional structured validation or debugging details.",
+            "examples": [
+              [
+                {
+                  "loc": [
+                    "body",
+                    "image"
+                  ],
+                  "msg": "Field required",
+                  "type": "missing"
+                }
+              ]
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "code",
+          "message"
+        ],
+        "title": "ErrorDetail",
+        "example": {
+          "code": "INVALID_IMAGE",
+          "hint": "Send `image` as base64-encoded PNG/JPEG bytes.",
+          "message": "Could not decode image: Incorrect padding"
+        }
+      },
+      "ErrorResponse": {
+        "properties": {
+          "error": {
+            "$ref": "#/components/schemas/ErrorDetail",
+            "description": "Wrapped error payload."
+          }
+        },
+        "type": "object",
+        "required": [
+          "error"
+        ],
+        "title": "ErrorResponse",
+        "example": {
+          "error": {
+            "code": "INVALID_IMAGE",
+            "hint": "Send `image` as base64-encoded PNG/JPEG bytes.",
+            "message": "Could not decode image: Incorrect padding"
+          }
+        }
+      },
+      "OCRBackendResponse": {
+        "properties": {
+          "backend": {
+            "type": "string",
+            "title": "Backend",
+            "description": "Active OCR backend name.",
+            "examples": [
+              "paddle"
+            ]
+          },
+          "backend_device": {
+            "type": "string",
+            "title": "Backend Device",
+            "description": "Execution device for the active OCR backend.",
+            "examples": [
+              "gpu"
+            ]
+          },
+          "lang": {
+            "type": "string",
+            "title": "Lang",
+            "description": "Configured OCR language set.",
+            "examples": [
+              "en"
+            ]
+          },
+          "det_limit_side_len": {
+            "type": "integer",
+            "title": "Det Limit Side Len",
+            "description": "Maximum image side length used by the OCR text detector before internal resizing.",
+            "examples": [
+              1920
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "backend",
+          "backend_device",
+          "lang",
+          "det_limit_side_len"
+        ],
+        "title": "OCRBackendResponse",
+        "example": {
+          "backend": "paddle",
+          "backend_device": "gpu",
+          "det_limit_side_len": 1920,
+          "lang": "en"
+        }
+      },
+      "OCRDetectionResult": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id",
+            "description": "Stable identifier within the response payload.",
+            "examples": [
+              "0"
+            ]
+          },
+          "text": {
+            "type": "string",
+            "title": "Text",
+            "description": "Recognized text for this detection.",
+            "examples": [
+              "View Leaderboard"
+            ]
+          },
+          "confidence": {
+            "type": "number",
+            "title": "Confidence",
+            "description": "OCR confidence score for the recognized text.",
+            "examples": [
+              0.96
+            ]
+          },
+          "bbox": {
+            "$ref": "#/components/schemas/Rect",
+            "description": "Axis-aligned bounding box enclosing the text region."
+          },
+          "polygon": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/PolygonPoint"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Polygon",
+            "description": "Polygon geometry for the text region when `include_polygons=true`."
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "text",
+          "confidence",
+          "bbox"
+        ],
+        "title": "OCRDetectionResult",
+        "example": {
+          "bbox": {
+            "x1": 412,
+            "x2": 560,
+            "y1": 1110,
+            "y2": 1234
+          },
+          "confidence": 0.96,
+          "id": "0",
+          "polygon": [
+            {
+              "x": 412,
+              "y": 1110
+            },
+            {
+              "x": 560,
+              "y": 1110
+            },
+            {
+              "x": 560,
+              "y": 1234
+            },
+            {
+              "x": 412,
+              "y": 1234
+            }
+          ],
+          "text": "View Leaderboard"
+        }
+      },
+      "OCRPageMeta": {
+        "properties": {
+          "image_width": {
+            "type": "integer",
+            "title": "Image Width",
+            "description": "Width of the decoded source image in pixels.",
+            "examples": [
+              1200
+            ]
+          },
+          "image_height": {
+            "type": "integer",
+            "title": "Image Height",
+            "description": "Height of the decoded source image in pixels.",
+            "examples": [
+              1602
+            ]
+          },
+          "backend": {
+            "type": "string",
+            "title": "Backend",
+            "description": "Active OCR backend serving the request.",
+            "examples": [
+              "paddle"
+            ]
+          },
+          "backend_device": {
+            "type": "string",
+            "title": "Backend Device",
+            "description": "Execution device for the active OCR backend.",
+            "examples": [
+              "gpu"
+            ]
+          },
+          "lang": {
+            "type": "string",
+            "title": "Lang",
+            "description": "Configured OCR language set.",
+            "examples": [
+              "en"
+            ]
+          },
+          "num_detections": {
+            "type": "integer",
+            "title": "Num Detections",
+            "description": "Number of OCR detections returned.",
+            "examples": [
+              2
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "image_width",
+          "image_height",
+          "backend",
+          "backend_device",
+          "lang",
+          "num_detections"
+        ],
+        "title": "OCRPageMeta",
+        "example": {
+          "backend": "paddle",
+          "backend_device": "gpu",
+          "image_height": 1602,
+          "image_width": 1200,
+          "lang": "en",
+          "num_detections": 2
+        }
+      },
+      "OCRPageRequest": {
+        "properties": {
+          "image": {
+            "type": "string",
+            "title": "Image",
+            "description": "Base64-encoded PNG or JPEG bytes for the source image.",
+            "examples": [
+              "iVBORw0KGgoAAAANSUhEUgAA..."
+            ]
+          },
+          "include_polygons": {
+            "type": "boolean",
+            "title": "Include Polygons",
+            "description": "Whether to include polygon geometry for each OCR detection in the response.",
+            "default": true,
+            "examples": [
+              true
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "image"
+        ],
+        "title": "OCRPageRequest",
+        "example": {
+          "image": "iVBORw0KGgoAAAANSUhEUgAA...",
+          "include_polygons": true
+        }
+      },
+      "OCRPageResponse": {
+        "properties": {
+          "text": {
+            "type": "string",
+            "title": "Text",
+            "description": "Convenience newline-joined text extracted from the page. Use `detections` for structured downstream logic.",
+            "examples": [
+              "View Leaderboard\nSettings"
+            ]
+          },
+          "detections": {
+            "items": {
+              "$ref": "#/components/schemas/OCRDetectionResult"
+            },
+            "type": "array",
+            "title": "Detections",
+            "description": "Structured OCR detections for each text region recognized on the page."
+          },
+          "meta": {
+            "$ref": "#/components/schemas/OCRPageMeta",
+            "description": "Metadata about the OCR request and active backend."
+          }
+        },
+        "type": "object",
+        "required": [
+          "text",
+          "detections",
+          "meta"
+        ],
+        "title": "OCRPageResponse",
+        "example": {
+          "detections": [
+            {
+              "bbox": {
+                "x1": 412,
+                "x2": 560,
+                "y1": 1110,
+                "y2": 1234
+              },
+              "confidence": 0.96,
+              "id": "0",
+              "polygon": [
+                {
+                  "x": 412,
+                  "y": 1110
+                },
+                {
+                  "x": 560,
+                  "y": 1110
+                },
+                {
+                  "x": 560,
+                  "y": 1234
+                },
+                {
+                  "x": 412,
+                  "y": 1234
+                }
+              ],
+              "text": "View Leaderboard"
+            }
+          ],
+          "meta": {
+            "backend": "paddle",
+            "backend_device": "gpu",
+            "image_height": 1602,
+            "image_width": 1200,
+            "lang": "en",
+            "num_detections": 2
+          },
+          "text": "View Leaderboard\nSettings"
+        }
+      },
+      "PolygonPoint": {
+        "properties": {
+          "x": {
+            "type": "integer",
+            "title": "X",
+            "description": "Horizontal pixel coordinate for a polygon vertex.",
+            "examples": [
+              412
+            ]
+          },
+          "y": {
+            "type": "integer",
+            "title": "Y",
+            "description": "Vertical pixel coordinate for a polygon vertex.",
+            "examples": [
+              1110
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "x",
+          "y"
+        ],
+        "title": "PolygonPoint"
+      },
+      "Rect": {
+        "properties": {
+          "x1": {
+            "type": "integer",
+            "title": "X1",
+            "description": "Left edge of the axis-aligned bounding box in pixels.",
+            "examples": [
+              412
+            ]
+          },
+          "y1": {
+            "type": "integer",
+            "title": "Y1",
+            "description": "Top edge of the axis-aligned bounding box in pixels.",
+            "examples": [
+              1110
+            ]
+          },
+          "x2": {
+            "type": "integer",
+            "title": "X2",
+            "description": "Right edge of the axis-aligned bounding box in pixels.",
+            "examples": [
+              560
+            ]
+          },
+          "y2": {
+            "type": "integer",
+            "title": "Y2",
+            "description": "Bottom edge of the axis-aligned bounding box in pixels.",
+            "examples": [
+              1234
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "x1",
+          "y1",
+          "x2",
+          "y2"
+        ],
+        "title": "Rect"
+      }
+    }
+  },
+  "tags": [
+    {
+      "name": "ocr",
+      "description": "Standalone OCR operations for discovering backend capabilities and performing full-page OCR on images."
+    }
+  ]
+}

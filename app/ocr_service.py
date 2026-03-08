@@ -39,6 +39,14 @@ class OCRService:
             return
         self._load_easyocr(use_gpu=False)
 
+    def describe_backend(self) -> dict[str, str | int]:
+        return {
+            "backend": self.backend or "unavailable",
+            "backend_device": self.backend_device or "unknown",
+            "lang": self.lang,
+            "det_limit_side_len": self.det_limit_side_len,
+        }
+
     def _load_paddle_gpu(self) -> bool:
         gpu_available, gpu_reason = self._is_paddle_gpu_available()
         if not gpu_available:

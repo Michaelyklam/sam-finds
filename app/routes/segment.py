@@ -1,12 +1,9 @@
 from __future__ import annotations
 
-import base64
-import io
-
 from fastapi import APIRouter, Request
-from PIL import Image
 
-from app.errors import EMPTY_RESULT, INVALID_IMAGE, SAMError
+from app.errors import EMPTY_RESULT, SAMError
+from app.image_utils import decode_base64_image
 from app.ocr_assist import predict_text_with_ocr_assist
 from app.schemas import (
     Meta,
@@ -20,21 +17,13 @@ from app.schemas import (
 router = APIRouter()
 
 
-def _decode_base64_image(image_b64: str) -> Image.Image:
-    try:
-        image_bytes = base64.b64decode(image_b64)
-        return Image.open(io.BytesIO(image_bytes)).convert("RGB")
-    except Exception as exc:
-        raise SAMError(INVALID_IMAGE, f"Could not decode image: {exc}")
-
-
 def _should_use_ocr_for_segment_text(*, text_mode: str) -> bool:
     return text_mode == "screen_text"
 
 
 @router.post("/v1/sam/segment", response_model=SegmentResponse)
 def segment(request: Request, body: SegmentRequest) -> SegmentResponse:
-    image = _decode_base64_image(body.image)
+    image = decode_base64_image(body.image)
 
     sam_service = request.app.state.sam_service
     used_ocr_assist = False
@@ -75,7 +64,7 @@ def segment(request: Request, body: SegmentRequest) -> SegmentResponse:
 
 @router.post("/v1/sam/segment/text-points", response_model=TextPointsResponse)
 def segment_text_points(request: Request, body: TextPointsRequest) -> TextPointsResponse:
-    image = _decode_base64_image(body.image)
+    image = decode_base64_image(body.image)
 
     sam_service = request.app.state.sam_service
     point_results = []

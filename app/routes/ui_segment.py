@@ -1,24 +1,12 @@
 from __future__ import annotations
 
-import base64
-import io
-
 from fastapi import APIRouter, Request
-from PIL import Image
 
-from app.errors import INVALID_IMAGE, SAMError
+from app.image_utils import decode_base64_image
 from app.ocr_assist import predict_text_with_ocr_assist
 from app.schemas import Meta, SegmentRequest, SegmentResponse
 
 router = APIRouter()
-
-
-def _decode_base64_image(image_b64: str) -> Image.Image:
-    try:
-        image_bytes = base64.b64decode(image_b64)
-        return Image.open(io.BytesIO(image_bytes)).convert("RGB")
-    except Exception as exc:
-        raise SAMError(INVALID_IMAGE, f"Could not decode image: {exc}")
 
 
 def _should_use_ocr_for_ui_text(*, text_mode: str) -> bool:
@@ -27,7 +15,7 @@ def _should_use_ocr_for_ui_text(*, text_mode: str) -> bool:
 
 @router.post("/v1/ui/segment", response_model=SegmentResponse)
 def ui_segment(request: Request, body: SegmentRequest) -> SegmentResponse:
-    image = _decode_base64_image(body.image)
+    image = decode_base64_image(body.image)
     sam_service = request.app.state.sam_service
 
     used_ocr_assist = False

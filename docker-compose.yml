@@ -1,12 +1,29 @@
 services:
+  ocr-service:
+    build:
+      context: .
+      dockerfile: Dockerfile.ocr
+    ports:
+      - "8001:8001"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
   sam-finds:
     build: .
     ports:
       - "8000:8000"
     environment:
       - HF_TOKEN=${HF_TOKEN}
+      - OCR_SERVICE_URL=http://ocr-service:8001
     volumes:
       - hf_cache:/root/.cache/huggingface
+    depends_on:
+      - ocr-service
     deploy:
       resources:
         reservations:

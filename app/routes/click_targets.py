@@ -1,13 +1,10 @@
 from __future__ import annotations
-
-import base64
-import io
 import time
 
 from fastapi import APIRouter, Request
-from PIL import Image
 
-from app.errors import EMPTY_RESULT, INVALID_IMAGE, TEXT_NOT_FOUND, SAMError
+from app.errors import EMPTY_RESULT, TEXT_NOT_FOUND, SAMError
+from app.image_utils import decode_base64_image
 from app.schemas import (
     BoxPrompt,
     CentroidPoint,
@@ -23,18 +20,10 @@ from app.text_match import rank_ocr_matches
 router = APIRouter()
 
 
-def _decode_base64_image(image_b64: str) -> Image.Image:
-    try:
-        image_bytes = base64.b64decode(image_b64)
-        return Image.open(io.BytesIO(image_bytes)).convert("RGB")
-    except Exception as exc:
-        raise SAMError(INVALID_IMAGE, f"Could not decode image: {exc}")
-
-
 @router.post("/v1/ui/click-targets", response_model=ClickTargetsResponse)
 def click_targets(request: Request, body: ClickTargetsRequest) -> ClickTargetsResponse:
     started = time.perf_counter()
-    image = _decode_base64_image(body.image)
+    image = decode_base64_image(body.image)
     width, height = image.size
 
     ocr_service = request.app.state.ocr_service
